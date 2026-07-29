@@ -23,6 +23,8 @@ dev = [
 ]
 remarkable = [
   "remarkapy>=0.1.0",
+  "rmscene>=0.8.0",
+  "cairosvg>=2.7.0",
 ]
 
 [project.scripts]

@@ -16,3 +16,6 @@ __pycache__/
 venv/
 *.pyc
 
+# Generated weekly digests (keep directory via .gitkeep)
+weekly-notes/*.md
+

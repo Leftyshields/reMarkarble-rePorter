@@ -41,7 +41,13 @@ Never commit `.env`.
 
 ### reMarkable token (headless)
 
-Register a device token once via your remarkapy / reMarkable cloud registration flow, then store it in `REMARKABLE_TOKEN`. Prefer a long-lived device token for cron (not an interactive one-time code each Friday).
+1. Browse OS/toolchain docs at [developer.remarkable.com](https://developer.remarkable.com/) if needed — **not** required for this CLI.
+2. Get an 8-character code from [my.remarkable.com/device/desktop/connect](https://my.remarkable.com/device/desktop/connect).
+3. `pip install -e ".[remarkable]"` then `remarkapy init` (stores tokens in `~/.rmapi`).
+4. Copy `devicetoken` into `REMARKABLE_TOKEN` in `.env`.
+5. Prefer a long-lived device token for cron (not a fresh one-time code each Friday).
+
+See README **Getting a reMarkable token** for the full walkthrough.
 
 ## Start commands
 
@@ -80,9 +86,9 @@ remarkable-weekly --week 2026-W31
 
 | Rule | Why |
 |------|-----|
-| Never commit `.env` | Secrets |
+| Never commit `.env` or `~/.rmapi` | Secrets / device tokens |
 | Prefer `--dry-run` / fakes in CI | No live tokens |
-| Keep Genesis Node files intact | Product is additive Python |
+| Cloud auth via my.remarkable.com + `remarkapy init` | Developer Portal is for tablet OS/toolchains, not this CLI’s cloud pull |
 
 ## Symptom → fix
 

@@ -2,18 +2,22 @@
 
 from __future__ import annotations
 
+import io
+import json
+import zipfile
 from io import BytesIO
 
 from remarkable_weekly.clients.base import RemarkableClient
 from remarkable_weekly.models import PageImage
+from remarkable_weekly.render_rm import rm_bytes_to_png
 
 
 class RemarkableCloudClient(RemarkableClient):
     """
     Fetch notebook pages from reMarkable cloud using remarkapy.
 
-    Requires ``remarkapy`` installed (``pip install remarkable-weekly[remarkable]``)
-    and a valid ``REMARKABLE_TOKEN``.
+    Handwritten notebooks have no original PDF — we download the raw bundle
+    and render the last N ``.rm`` pages to PNG via rmscene + cairosvg.
     """
 
     def __init__(self, token: str) -> None:
@@ -31,73 +35,66 @@ class RemarkableCloudClient(RemarkableClient):
 
     def fetch_last_pages(self, notebook_name: str, page_count: int) -> list[PageImage]:
         try:
-            from remarkapy import Client  # type: ignore[attr-defined]
-        except ImportError:
-            try:
-                from remarkapy.client import Client  # type: ignore[attr-defined]
-            except ImportError as exc:
-                raise RuntimeError(
-                    "Could not import remarkapy Client. "
-                    "Check remarkapy version/API and reMarkable cloud credentials."
-                ) from exc
+            from remarkapy import Client
+        except ImportError as exc:
+            raise RuntimeError(
+                "Could not import remarkapy Client. "
+                "Check remarkapy version/API and reMarkable cloud credentials."
+            ) from exc
 
-        client = Client(token=self._token)
-        # remarkapy APIs vary by version; try common patterns
-        pdf_bytes = _download_notebook_pdf(client, notebook_name)
-        return pdf_to_page_images(pdf_bytes, page_count)
+        client = Client(device_token=self._token, interactive=False)
+        bundle = client.get_document(notebook_name)
+        return notebook_bundle_to_page_images(bundle, page_count)
 
 
-def _download_notebook_pdf(client, notebook_name: str) -> bytes:
-    """Best-effort download of notebook as PDF across remarkapy versions."""
-    # Common patterns across remarkapy forks / versions
-    if hasattr(client, "download_pdf"):
-        items = _list_items(client)
-        item = _find_by_name(items, notebook_name)
-        return client.download_pdf(item)
+def notebook_bundle_to_page_images(bundle_bytes: bytes, page_count: int) -> list[PageImage]:
+    """Render the last ``page_count`` pages from a raw notebook zip to PNGs."""
+    zf = zipfile.ZipFile(io.BytesIO(bundle_bytes))
+    content_name = next((n for n in zf.namelist() if n.endswith(".content")), None)
+    if not content_name:
+        raise RuntimeError("Notebook bundle missing .content metadata")
 
-    if hasattr(client, "get_document") and hasattr(client, "export"):
-        items = _list_items(client)
-        item = _find_by_name(items, notebook_name)
-        doc_id = item.get("uuid") or item.get("id") or getattr(item, "uuid", None)
-        return client.export(doc_id, format="pdf")
+    doc_id = content_name[: -len(".content")]
+    content = json.loads(zf.read(content_name))
+    page_ids = _page_ids_in_order(content)
+    if not page_ids:
+        return []
 
-    raise NotImplementedError(
-        "This remarkapy Client does not expose a known PDF download API. "
-        "Update remarkapy or extend RemarkableCloudClient.fetch_last_pages."
-    )
-
-
-def _list_items(client) -> list:
-    if hasattr(client, "list_items"):
-        return list(client.list_items())
-    if hasattr(client, "get_meta_items"):
-        return list(client.get_meta_items())
-    if hasattr(client, "documents"):
-        return list(client.documents())
-    raise NotImplementedError("remarkapy Client has no known list/documents method")
+    selected = page_ids[-page_count:] if page_count > 0 else page_ids
+    pages: list[PageImage] = []
+    for i, page_id in enumerate(selected):
+        rm_path = f"{doc_id}/{page_id}.rm"
+        try:
+            rm_bytes = zf.read(rm_path)
+        except KeyError as exc:
+            raise RuntimeError(f"Missing page file in bundle: {rm_path}") from exc
+        png = rm_bytes_to_png(rm_bytes, scale=1.0)
+        width, height = _png_size(png)
+        pages.append(PageImage(index=i, png_bytes=png, width=width, height=height))
+    return pages
 
 
-def _item_name(item) -> str | None:
-    if isinstance(item, dict):
-        return (
-            item.get("VissibleName")
-            or item.get("visibleName")
-            or item.get("name")
-        )
-    return getattr(item, "visible_name", None) or getattr(item, "name", None)
+def _page_ids_in_order(content: dict) -> list[str]:
+    c_pages = content.get("cPages") or {}
+    pages = c_pages.get("pages") or content.get("pages") or []
+    ids: list[str] = []
+    for entry in pages:
+        if isinstance(entry, str):
+            ids.append(entry)
+        elif isinstance(entry, dict) and entry.get("id"):
+            ids.append(entry["id"])
+    return ids
 
 
-def _find_by_name(items: list, notebook_name: str):
-    target = notebook_name.strip().lower()
-    for item in items:
-        name = _item_name(item)
-        if name and str(name).strip().lower() == target:
-            return item
-    raise FileNotFoundError(f"Notebook not found in reMarkable cloud: {notebook_name!r}")
+def _png_size(png_bytes: bytes) -> tuple[int, int]:
+    from PIL import Image
+
+    with Image.open(BytesIO(png_bytes)) as img:
+        return img.width, img.height
 
 
 def pdf_to_page_images(pdf_bytes: bytes, page_count: int) -> list[PageImage]:
-    """Render the last ``page_count`` PDF pages to PNG via pypdfium2."""
+    """Render the last ``page_count`` PDF pages to PNG via pypdfium2 (PDF notebooks)."""
     try:
         import pypdfium2 as pdfium
     except ImportError as exc:  # pragma: no cover

@@ -7,7 +7,7 @@ Each run pulls the last N notebook pages, checks handwritten date headers agains
 ## Quick start
 
 ```bash
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
 
@@ -28,6 +28,61 @@ remarkable-weekly
 ```
 
 Paste the generated markdown into Confluence Data Center via **Insert → Markup**.
+
+## Getting a reMarkable token
+
+Official tablet / OS / toolchain docs: **[reMarkable Developer Portal](https://developer.remarkable.com/)** → [Browse documentation](https://developer.remarkable.com/).
+
+This CLI does **not** use the on-device developer toolchain. It downloads notebooks from the **reMarkable cloud** (same sync service as the desktop/mobile apps) through [remarkapy](https://pypi.org/project/remarkapy/). You need a long-lived **device token**.
+
+### Prerequisites
+
+1. reMarkable account with cloud sync ([pair your tablet](https://support.remarkable.com/s/article/Pair-your-reMarkable-with-the-cloud)).
+2. **Daily Journal** synced to the cloud (open it on Wi‑Fi so recent pages upload).
+
+### One-time registration
+
+1. Install the cloud client extras:
+
+   ```bash
+   source .venv/bin/activate
+   pip install -e ".[remarkable]"
+   ```
+
+2. In a browser, sign in and open the connect page to get an **8-character one-time code**:  
+   [https://my.remarkable.com/device/desktop/connect](https://my.remarkable.com/device/desktop/connect)
+
+3. Register that code (stores tokens under `~/.rmapi` by default):
+
+   ```bash
+   remarkapy init
+   # paste the one-time code when prompted
+   ```
+
+4. Copy the **device token** from `~/.rmapi` into this project’s `.env` (look for the `devicetoken` line):
+
+   ```bash
+   cp .env.example .env
+   # set:
+   # REMARKABLE_TOKEN=<devicetoken from ~/.rmapi>
+   # ANTHROPIC_API_KEY=<from https://console.anthropic.com/>
+   ```
+
+5. Confirm the notebook is visible:
+
+   ```bash
+   remarkapy ls
+   ```
+
+6. Run a live weekly job:
+
+   ```bash
+   remarkable-weekly --week 2026-W31
+   ```
+
+Keep `~/.rmapi` and `.env` private — never commit them. Re-run `remarkapy init --force` if you need a new device token.
+
+> **Developer Portal vs this app:** use [developer.remarkable.com](https://developer.remarkable.com/) for tablet OS, software internals, and toolchains. Use **my.remarkable.com connect + remarkapy** for cloud notebook access in this repo.
 
 ## CLI
 
