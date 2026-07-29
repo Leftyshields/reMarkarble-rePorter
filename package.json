@@ -1,0 +1,12 @@
+{
+  "name": "project-genesis",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "test": "node --test lib/loadGenome.test.js lib/decompose.test.js lib/signaling.test.js lib/guardrails.test.js lib/run.test.js lib/repair.test.js scripts/derive-expression-profiles.test.js scripts/molecules-read_file.test.js scripts/genesis-run.test.js && pytest -q",
+    "test:node": "node --test lib/loadGenome.test.js lib/decompose.test.js lib/signaling.test.js lib/guardrails.test.js lib/run.test.js lib/repair.test.js scripts/derive-expression-profiles.test.js scripts/molecules-read_file.test.js scripts/genesis-run.test.js",
+    "test:python": "pytest -q",
+    "test:instantiate": "node --test scripts/instantiate.test.js",
+    "genesis:run": "node scripts/genesis-run.js"
+  }
+}

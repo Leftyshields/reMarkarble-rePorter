@@ -1,0 +1,18 @@
+# Workflow context (optional: remove to commit context files)
+.ai/context/
+
+# Test temp dir (molecule library tests)
+.tmp-molecules-test/
+
+# Runtime logs (audit, guardrails)
+.logs/
+
+# Python / product secrets & caches
+.env
+__pycache__/
+.pytest_cache/
+*.egg-info/
+.venv/
+venv/
+*.pyc
+

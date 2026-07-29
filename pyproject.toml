@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "remarkable-weekly"
+version = "0.1.0"
+description = "Headless CLI: pull reMarkable Daily Journal pages, validate dates, chop, summarize via Claude, write weekly markdown."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "reMarkarble-rePorter" }]
+dependencies = [
+  "anthropic>=0.40.0",
+  "Pillow>=10.0.0",
+  "pypdfium2>=4.0.0",
+  "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0.0",
+]
+remarkable = [
+  "remarkapy>=0.1.0",
+]
+
+[project.scripts]
+remarkable-weekly = "remarkable_weekly.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
